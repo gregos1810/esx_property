@@ -23,3 +23,14 @@ git clone https://github.com/FXServer-ESX/fxserver-esx_property esx_property
 ```
 start esx_property
 ```
+Ajouter le code suivant dans es_extended\server\function.lua
+
+```
+ESX.GetItemLabel = function(name
+
+  )
+    if ESX.Items[name] ~= nil then
+      return ESX.Items[name].label
+    end
+end
+```
