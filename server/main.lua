@@ -193,7 +193,7 @@ AddEventHandler('esx_property:rentProperty', function(propertyName)
   local xPlayer  = ESX.GetPlayerFromId(source)
   local property = GetProperty(propertyName)
 
-  SetPropertyOwned(propertyName, property.price / 200, true, xPlayer.identifier)
+  SetPropertyOwned(propertyName, property.price / 400, true, xPlayer.identifier)
 
 end)
 
@@ -257,43 +257,44 @@ end)
 RegisterServerEvent('esx_property:getItem')
 AddEventHandler('esx_property:getItem', function(owner, type, item, count)
 
-	local _source      = source
-	local xPlayer      = ESX.GetPlayerFromId(_source)
-	local xPlayerOwner = ESX.GetPlayerFromIdentifier(owner)
+  local _source      = source
+  local xPlayer      = ESX.GetPlayerFromId(_source)
+  local xPlayerOwner = ESX.GetPlayerFromIdentifier(owner)
 
-	if type == 'item_standard' then
-		local sourceItem = xPlayer.getInventoryItem(item)
-		TriggerEvent('esx_addoninventory:getInventory', 'property', xPlayerOwner.identifier, function(inventory)
+  if type == 'item_standard' then
 
-			-- is there enough in the property?
-			if count > 0 and inventory.getItem(item).count >= count then
-			
-				-- can the player carry the said amount of x item?
-				if sourceItem.limit ~= -1 and (sourceItem.count + count) > sourceItem.limit then
-					TriggerClientEvent('esx:showNotification', _source, _U('player_cannot_hold'))
-				else
-					inventory.removeItem(item, count)
-					xPlayer.addInventoryItem(item, count)
-				end
-			else
-				TriggerClientEvent('esx:showNotification', _source, _U('not_enough_in_property'))
-			end
-		end)
-	end
+    TriggerEvent('esx_datastore:getDataStore', 'property', xPlayerOwner.identifier, function(store)
+      local coffre = (store.get('coffre') or {})
+      for i=1, #coffre,1 do
+        if coffre[i].name == item then
+          if (coffre[i].count >= count and count > 0) then
+            xPlayer.addInventoryItem(item, count)
+            if (coffre[i].count - count) == 0 then
+              table.remove(coffre,i)
+            else
+              coffre[i].count = coffre[i].count - count
+            end
+          else
+            TriggerClientEvent('esx:showNotification', _source, _U('invalid_quantity'))
+          end
+        end
+      end
+      store.set('coffre',coffre)
+    end)
+  end
 
   if type == 'item_account' then
 
-    TriggerEvent('esx_addonaccount:getAccount', 'property_' .. item, xPlayerOwner.identifier, function(account)
+    TriggerEvent('esx_datastore:getDataStore', 'property', xPlayerOwner.identifier, function(store)
 
-      local roomAccountMoney = account.money
-
-      if roomAccountMoney >= count then
-        account.removeMoney(count)
+      local blackMoney = store.get('black_money')
+      if (blackMoney[1].amount >= count and count > 0) then
+        blackMoney[1].amount = blackMoney[1].amount - count
+        store.set('black_money', blackMoney)
         xPlayer.addAccountMoney(item, count)
       else
         TriggerClientEvent('esx:showNotification', _source, _U('amount_invalid'))
       end
-
     end)
 
   end
@@ -344,12 +345,25 @@ AddEventHandler('esx_property:putItem', function(owner, type, item, count)
 
     local playerItemCount = xPlayer.getInventoryItem(item).count
 
-    if playerItemCount >= count then
+    if (playerItemCount >= count and count > 0 )then
 
       xPlayer.removeInventoryItem(item, count)
-
-      TriggerEvent('esx_addoninventory:getInventory', 'property', xPlayerOwner.identifier, function(inventory)
-        inventory.addItem(item, count)
+      TriggerEvent('esx_datastore:getDataStore', 'property', xPlayerOwner.identifier, function(store)
+        local found = false
+        local coffre = (store.get('coffre') or {})
+        for i=1,#coffre,1 do
+          if coffre[i].name == item then
+            coffre[i].count = coffre[i].count + count
+            found = true
+          end
+        end
+        if not found then
+          table.insert(coffre, {
+            name = item,
+            count = count
+          })
+        end
+        store.set('coffre', coffre)
       end)
 
     else
@@ -362,12 +376,20 @@ AddEventHandler('esx_property:putItem', function(owner, type, item, count)
 
     local playerAccountMoney = xPlayer.getAccount(item).money
 
-    if playerAccountMoney >= count then
+
+    if (playerAccountMoney >= count and count > 0) then
 
       xPlayer.removeAccountMoney(item, count)
+      TriggerEvent('esx_datastore:getDataStore', 'property', xPlayerOwner.identifier, function(store)
 
-      TriggerEvent('esx_addonaccount:getAccount', 'property_' .. item, xPlayerOwner.identifier, function(account)
-        account.addMoney(count)
+        local blackMoney = (store.get('black_money') or nil)
+        if blackMoney ~= nil then
+          blackMoney[1].amount = blackMoney[1].amount + count
+        else
+          blackMoney = {}
+          table.insert(blackMoney,{amount=count})
+        end
+        store.set('black_money', blackMoney)
       end)
 
     else
@@ -451,20 +473,18 @@ ESX.RegisterServerCallback('esx_property:getPropertyInventory', function(source,
   local items      = {}
   local weapons    = {}
 
-  TriggerEvent('esx_addonaccount:getAccount', 'property_black_money', xPlayer.identifier, function(account)
-    blackMoney = account.money
-  end)
-
-  TriggerEvent('esx_addoninventory:getInventory', 'property', xPlayer.identifier, function(inventory)
-    items = inventory.items
-  end)
-
   TriggerEvent('esx_datastore:getDataStore', 'property', xPlayer.identifier, function(store)
 
-    local storeWeapons = store.get('weapons')
+    weapons = (store.get('weapons') or {})
 
-    if storeWeapons ~= nil then
-      weapons = storeWeapons
+    local blackAccount = (store.get('black_money')) or 0
+    if blackAccount ~=0 then
+      blackMoney = blackAccount[1].amount
+    end
+
+    local coffre = (store.get('coffre') or {})
+    for i=1,#coffre,1 do
+      table.insert(items,{name=coffre[i].name,count=coffre[i].count,label=ESX.GetItemLabel(coffre[i].name)})
     end
 
   end)
@@ -535,7 +555,7 @@ AddEventHandler('esx_property:removeOutfit', function(label)
         end
 
         label = label
-        
+
         table.remove(dressing, label)
 
         store.set('dressing', dressing)
@@ -618,4 +638,4 @@ function PayRent(d, h, m)
 
 end
 
-TriggerEvent('cron:runAt', 22, 0, PayRent)
+TriggerEvent('cron:runAt', 5, 0, PayRent)

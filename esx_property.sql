@@ -1,16 +1,10 @@
-USE `essentialmode`;
+﻿USE `essentialmode`;
 
 ALTER TABLE `users`
   ADD COLUMN `last_property` VARCHAR(255) NULL
 ;
 
-INSERT INTO `addon_account` (name, label, shared) VALUES
-  ('property_black_money','Argent Sale Propriété',0)
-;
 
-INSERT INTO `addon_inventory` (name, label, shared) VALUES
-  ('property','Propriété',0)
-;
 
 INSERT INTO `datastore` (name, label, shared) VALUES
   ('property','Propriété',0)

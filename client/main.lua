@@ -603,15 +603,15 @@ function OpenRoomMenu(property, owner)
         end)
 
       end
-        
+
       if data.current.value == 'remove_cloth' then
           ESX.TriggerServerCallback('esx_property:getPlayerDressing', function(dressing)
               local elements = {}
-      
+
               for i=1, #dressing, 1 do
                   table.insert(elements, {label = dressing[i].label, value = i})
               end
-              
+
               ESX.UI.Menu.Open(
               'default', GetCurrentResourceName(), 'remove_cloth',
               {
@@ -661,9 +661,7 @@ function OpenRoomInventoryMenu(property, owner)
     table.insert(elements, {label = _U('dirty_money') .. inventory.blackMoney, type = 'item_account', value = 'black_money'})
 
     for i=1, #inventory.items, 1 do
-
       local item = inventory.items[i]
-
       if item.count > 0 then
         table.insert(elements, {label = item.label .. ' x' .. item.count, type = 'item_standard', value = item.name})
       end
@@ -690,7 +688,7 @@ function OpenRoomInventoryMenu(property, owner)
 
           TriggerServerEvent('esx_property:getItem', owner, data.current.type, data.current.value, data.current.ammo)
 
-          ESX.SetTimeout(300, function()
+          ESX.SetTimeout(500, function()
             OpenRoomInventoryMenu(property, owner)
           end)
 
@@ -705,7 +703,7 @@ function OpenRoomInventoryMenu(property, owner)
 
               local quantity = tonumber(data2.value)
 
-              if quantity == nil then
+              if quantity == nil or quantity < 1 then
                 ESX.ShowNotification(_U('amount_invalid'))
               else
 
@@ -713,7 +711,7 @@ function OpenRoomInventoryMenu(property, owner)
 
                 TriggerServerEvent('esx_property:getItem', owner, data.current.type, data.current.value, quantity)
 
-                ESX.SetTimeout(300, function()
+                ESX.SetTimeout(500, function()
                   OpenRoomInventoryMenu(property, owner)
                 end)
 
@@ -796,15 +794,20 @@ function OpenPlayerInventoryMenu(property, owner)
               title = _U('amount'),
             },
             function(data2, menu)
+              local quantity = tonumber(data2.value)
 
-              menu.close()
+              if quantity == nil or quantity < 1 then
+                ESX.ShowNotification(_U('amount_invalid'))
+              else
+                menu.close()
 
-              TriggerServerEvent('esx_property:putItem', owner, data.current.type, data.current.value, tonumber(data2.value))
+                TriggerServerEvent('esx_property:putItem', owner, data.current.type, data.current.value, tonumber(data2.value))
 
-              ESX.SetTimeout(300, function()
-                OpenPlayerInventoryMenu(property, owner)
-              end)
+                ESX.SetTimeout(300, function()
+                  OpenPlayerInventoryMenu(property, owner)
 
+                end)
+              end
             end,
             function(data2,menu)
               menu.close()
